@@ -45,7 +45,7 @@ This system demonstrates secure coding practices including authentication, autho
 
 ## How to Run the Project
 
-```bash
+
 # Clone repository
 git clone https://github.com/Bassel11r/SceureProject.git
 
@@ -57,3 +57,6 @@ npm install
 
 # Start backend server
 node server.js
+
+#Start the front end
+live-server frontend --port= replace with port number
