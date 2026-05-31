@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Admin Panel - Online Store</title>
+</head>
+<body>
+
+<h1>Admin Panel</h1>
+<nav>
+    <a href="index.html">Back to Store</a> |
+    <button id="logoutBtn">Logout</button>
+</nav>
+
+<hr>
+
+<h2>Add New Product</h2>
+<div>
+    <label for="pName">Name:</label><br>
+    <input type="text"   id="pName"  maxlength="200"><br><br>
+
+    <label for="pPrice">Price ($):</label><br>
+    <input type="number" id="pPrice" min="0" step="0.01"><br><br>
+
+    <label for="pDesc">Description:</label><br>
+    <textarea id="pDesc" maxlength="2000" rows="3" cols="40"></textarea><br><br>
+
+    <label for="pStock">Stock:</label><br>
+    <input type="number" id="pStock" min="0" value="0"><br><br>
+
+    <button id="createProductBtn">Create Product</button>
+</div>
+<p id="productMsg" role="alert"></p>
+
+<hr>
+
+<h2>All Users</h2>
+<button id="loadUsersBtn">Load Users</button>
+<div id="users"></div>
+
+<hr>
+
+<h2>All Products</h2>
+<button id="loadProductsBtn">Load Products</button>
+<div id="adminProducts"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/xss/dist/xss.min.js"></script>
+<script src="app.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    // Guard: only admins allowed
+    const user = getUser();
+    if (!user || user.role !== "admin") {
+        alert("Access denied. Admin only.");
+        window.location.href = "index.html";
+        return;
+    }
+
+    document.getElementById("logoutBtn").addEventListener("click",       function () { logout(); });
+    document.getElementById("createProductBtn").addEventListener("click", createProduct);
+    document.getElementById("loadUsersBtn").addEventListener("click",     loadUsers);
+    document.getElementById("loadProductsBtn").addEventListener("click",  loadAdminProducts);
+});
+
+async function createProduct() {
+    const name        = document.getElementById("pName").value.trim();
+    const price       = document.getElementById("pPrice").value;
+    const description = document.getElementById("pDesc").value.trim();
+    const stock       = document.getElementById("pStock").value;
+    const msgEl       = document.getElementById("productMsg");
+
+    if (!name || price === "") {
+        msgEl.textContent = "Name and price are required.";
+        return;
+    }
+
+    // Fixed: was "/api/products" (double-prefix)
+    const result = await apiPost("/products", {
+        name:        name,
+        price:       parseFloat(price),
+        description: description,
+        stock:       parseInt(stock) || 0
+    });
+
+    if (result.success) {
+        msgEl.textContent = "Product created: " + escapeHtml(result.data.name);
+        document.getElementById("pName").value  = "";
+        document.getElementById("pPrice").value = "";
+        document.getElementById("pDesc").value  = "";
+        document.getElementById("pStock").value = "0";
+    } else {
+        msgEl.textContent = "Error: " + escapeHtml(result.message || "Failed to create product");
+    }
+}
+
+async function loadUsers() {
+    // Fixed: was "/api/users" (double-prefix)
+    const result    = await apiGet("/users");
+    const container = document.getElementById("users");
+
+    if (!result.success) {
+        container.textContent = "Error: " + escapeHtml(result.message || "Failed to load users");
+        return;
+    }
+
+    const users = result.data;
+    if (!users || users.length === 0) {
+        container.textContent = "No users found.";
+        return;
+    }
+
+    // Build table using DOM (not innerHTML) to avoid XSS
+    const table = document.createElement("table");
+    table.setAttribute("border", "1");
+    const header = table.insertRow();
+    ["Name", "Email", "Role", "Action"].forEach(function (h) {
+        const th       = document.createElement("th");
+        th.textContent = h;
+        header.appendChild(th);
+    });
+
+    users.forEach(function (u) {
+        const row        = table.insertRow();
+        row.insertCell().textContent = u.name;
+        row.insertCell().textContent = u.email;
+        row.insertCell().textContent = u.role;
+
+        const btn        = document.createElement("button");
+        btn.textContent  = "Delete";
+        btn.dataset.id   = String(u._id);
+        btn.addEventListener("click", function () { deleteUser(this.dataset.id); });
+        row.insertCell().appendChild(btn);
+    });
+
+    container.innerHTML = "";
+    container.appendChild(table);
+}
+
+async function deleteUser(userId) {
+    if (!confirm("Delete this user?")) return;
+    // Fixed: was "/api/users/..." (double-prefix)
+    const result = await apiDelete("/users/" + encodeURIComponent(userId));
+    if (result.success) {
+        alert("User deleted.");
+        loadUsers();
+    } else {
+        alert("Error: " + escapeHtml(result.message || "Failed to delete user"));
+    }
+}
+
+async function loadAdminProducts() {
+    // Fixed: was "/api/products" (double-prefix)
+    const result    = await apiGet("/products");
+    const container = document.getElementById("adminProducts");
+
+    if (!result.success) {
+        container.textContent = "Error loading products";
+        return;
+    }
+
+    const products = result.data;
+
+    // Build table using DOM (not innerHTML) to avoid XSS
+    const table  = document.createElement("table");
+    table.setAttribute("border", "1");
+    const header = table.insertRow();
+    ["Name", "Price", "Stock", "Action"].forEach(function (h) {
+        const th       = document.createElement("th");
+        th.textContent = h;
+        header.appendChild(th);
+    });
+
+    products.forEach(function (p) {
+        const row      = table.insertRow();
+        row.insertCell().textContent = p.name;
+        row.insertCell().textContent = "$" + p.price;
+        row.insertCell().textContent = p.stock;
+
+        const btn      = document.createElement("button");
+        btn.textContent = "Delete";
+        btn.dataset.id  = String(p._id);
+        btn.addEventListener("click", function () { deleteProduct(this.dataset.id); });
+        row.insertCell().appendChild(btn);
+    });
+
+    container.innerHTML = "";
+    container.appendChild(table);
+}
+
+async function deleteProduct(productId) {
+    if (!confirm("Delete this product?")) return;
+    // Fixed: was "/api/products/..." (double-prefix)
+    const result = await apiDelete("/products/" + encodeURIComponent(productId));
+    if (result.success) {
+        alert("Product deleted.");
+        loadAdminProducts();
+    } else {
+        alert("Error: " + escapeHtml(result.message || "Failed to delete product"));
+    }
+}
+</script>
+
+</body>
+</html>

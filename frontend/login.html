@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <title>Login - Online Store</title>
+</head>
+<body>
+
+<h1>Login</h1>
+<p><a href="register.html">Don't have an account? Register</a></p>
+
+<input type="email" id="email" placeholder="Email" autocomplete="email"><br><br>
+<input type="password" id="password" placeholder="Password" autocomplete="current-password"><br><br>
+
+<button id="loginBtn">Login</button>
+
+<p id="message" role="alert"></p>
+
+<!-- xss sanitisation library -->
+<script src="https://cdn.jsdelivr.net/npm/xss/dist/xss.min.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById("loginBtn").addEventListener("click", async function () {
+    const email    = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const msgEl    = document.getElementById("message");
+
+    if (!email || !password) {
+        msgEl.textContent = "Email and password are required.";
+        return;
+    }
+
+    try {
+        const res  = await fetch(API + "/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            // Server wraps token + user inside data.data
+            const token = data.data.token;
+            const user  = data.data.user;
+
+            setSession(token, user);
+
+            msgEl.textContent = "Login successful!";
+            setTimeout(() => { window.location.href = "index.html"; }, 800);
+        } else {
+            msgEl.textContent = "Error: " + escapeHtml(data.message || "Login failed");
+        }
+    } catch (err) {
+        console.error(err);
+        msgEl.textContent = "Server error. Please try again.";
+    }
+});
+</script>
+
+</body>
+</html>

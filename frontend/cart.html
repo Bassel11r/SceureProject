@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   
+    <title>My Cart - Online Store</title>
+</head>
+<body>
+
+<h1>My Cart</h1>
+<nav>
+    <a href="index.html">Back to Products</a> |
+    <!-- No onclick — use id-based event listener -->
+    <button id="logoutBtn">Logout</button>
+</nav>
+
+<hr>
+
+<div id="message" role="alert"></div>
+<div id="cart"></div>
+<button id="clearBtn" style="display:none">Clear Cart</button>
+
+<script src="https://cdn.jsdelivr.net/npm/xss/dist/xss.min.js"></script>
+<script src="app.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const token = getToken();
+    if (!token) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    loadCart();
+
+    document.getElementById("logoutBtn").addEventListener("click", function () {
+        logout();
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", function () {
+        clearCart();
+    });
+});
+
+async function loadCart() {
+    // Fixed: was "/api/cart" (double-prefix); correct path is "/cart"
+    const result    = await apiGet("/cart");
+    const container = document.getElementById("cart");
+    const msgEl     = document.getElementById("message");
+
+    if (!result.success) {
+        msgEl.textContent = "Error: " + escapeHtml(result.message || "Failed to load cart");
+        return;
+    }
+
+    const cart = result.data;
+    if (!cart || !cart.items || cart.items.length === 0) {
+        container.textContent = "Your cart is empty.";
+        return;
+    }
+
+    document.getElementById("clearBtn").style.display = "inline";
+    container.innerHTML = "<h3>Your Items:</h3>";
+    let total = 0;
+
+    cart.items.forEach(function (item) {
+        const product   = item.product;
+        const lineTotal = (product.price * item.quantity).toFixed(2);
+        total += parseFloat(lineTotal);
+
+        const div  = document.createElement("div");
+        const p    = document.createElement("p");
+        p.textContent = product.name + " — $" + product.price + " x " + item.quantity + " = $" + lineTotal;
+
+        // Remove button — use data attribute, no inline onclick
+        const removeBtn        = document.createElement("button");
+        removeBtn.textContent  = "Remove";
+        removeBtn.dataset.id   = String(product._id);
+        removeBtn.addEventListener("click", function () {
+            removeItem(this.dataset.id);
+        });
+
+        p.appendChild(removeBtn);
+        div.appendChild(p);
+        container.appendChild(div);
+    });
+
+    const totalEl = document.createElement("p");
+    const strong  = document.createElement("strong");
+    strong.textContent = "Total: $" + total.toFixed(2);
+    totalEl.appendChild(strong);
+    container.appendChild(totalEl);
+}
+
+async function removeItem(productId) {
+    // Fixed: was "/api/cart/remove" (double-prefix)
+    const result = await apiPost("/cart/remove", { productId: productId });
+    if (result.success) {
+        loadCart();
+    } else {
+        alert("Error: " + escapeHtml(result.message || "Failed to remove item"));
+    }
+}
+
+async function clearCart() {
+    // Fixed: was "/api/cart/clear" (double-prefix)
+    const result = await apiDelete("/cart/clear");
+    if (result.success) {
+        document.getElementById("cart").textContent    = "Cart cleared.";
+        document.getElementById("clearBtn").style.display = "none";
+    } else {
+        alert("Error: " + escapeHtml(result.message || "Failed to clear cart"));
+    }
+}
+</script>
+
+</body>
+</html>

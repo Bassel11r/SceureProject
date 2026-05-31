@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   
+    <title>Register - Online Store</title>
+</head>
+<body>
+
+<h1>Register</h1>
+<p><a href="login.html">Already have an account? Login</a></p>
+
+<div>
+    <input type="text"     id="name"     placeholder="Full Name"  autocomplete="name"  maxlength="100"><br><br>
+    <input type="email"    id="email"    placeholder="Email"      autocomplete="email" maxlength="254"><br><br>
+    <input type="password" id="password" placeholder="Password (min 8 chars, upper/lower/number/symbol)" autocomplete="new-password" maxlength="128"><br><br>
+    <button id="registerBtn">Register</button>
+</div>
+
+<p id="message" role="alert"></p>
+
+<script src="https://cdn.jsdelivr.net/npm/xss/dist/xss.min.js"></script>
+<script src="app.js"></script>
+<script>
+document.getElementById("registerBtn").addEventListener("click", async function () {
+    const name     = document.getElementById("name").value.trim();
+    const email    = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+    const msgEl    = document.getElementById("message");
+
+    if (!name || !email || !password) {
+        msgEl.textContent = "All fields are required.";
+        return;
+    }
+
+    // Basic client-side length checks (server enforces the real rules)
+    if (name.length < 2 || name.length > 100) {
+        msgEl.textContent = "Name must be between 2 and 100 characters.";
+        return;
+    }
+
+    try {
+        const res  = await fetch(API + "/auth/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password })
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            msgEl.textContent = "✅ " + escapeHtml(data.message || "Registered successfully!");
+            document.getElementById("name").value     = "";
+            document.getElementById("email").value    = "";
+            document.getElementById("password").value = "";
+        } else {
+            msgEl.textContent = "❌ " + escapeHtml(data.message || "Registration failed");
+        }
+    } catch (err) {
+        console.error(err);
+        msgEl.textContent = "❌ Server error. Try again.";
+    }
+});
+</script>
+
+</body>
+</html>
